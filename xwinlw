@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# Stop if no video file is given
+if [ -z "$1" ]; then
+    echo "Usage: $0 /path/to/video.mp4"
+    exit 1
+fi
+
+VIDEO_PATH="$1"
+
+# Check if the file actually exists
+if [ ! -f "$VIDEO_PATH" ]; then
+    echo "Error: File not found at '$VIDEO_PATH'"
+    exit 1
+fi
+
+# Kill the old wallpaper instance
+pkill -f "xwinwrap.*mpv"
+
+# Launch into the background flawlessly
+xwinwrap -b -fs -sp -ni -nf -ov -- \
+    mpv -wid WID \
+    --loop=inf \
+    --no-audio \
+    --input-vo-keyboard=no \
+    --no-input-cursor \
+    --hwdec=auto \
+    --vo=gpu \
+    "$VIDEO_PATH" >/dev/null 2>&1 &
+
+echo "Wallpaper updated to: $(basename "$VIDEO_PATH")"
+
