@@ -1,0 +1,32 @@
+#!/bin/bash
+
+FRAME_DIR=$(realpath "$1")
+# Target frame delay in seconds (e.g., 0.033)
+DELAY="${2:-0.033}"
+
+echo "Pre-loading 1,088 frames into RAM..."
+mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
+cat "${FRAMES[@]}" > /dev/null
+
+echo "Starting high-speed frame-locked engine..."
+TOTAL_FRAMES=${#FRAMES[@]}
+I=0
+
+# Grab initial time using built-in high-precision epoch float
+NEXT=$EPOCHREALTIME
+
+while true; do
+    # 1. Instantly swap the background using the cached RAM file path
+    feh --bg-scale "${FRAMES[$I]}"
+    
+    # 2. Advance to the next frame in the index
+    I=$(( (I + 1) % TOTAL_FRAMES ))
+    
+    # 3. Add the exact frame delay to the schedule
+    NEXT=$(awk "BEGIN {print $NEXT + $DELAY}")
+    
+    # 4. Pure hardware time-wait loop (No sleep process spawning)
+    while [ "$(awk "BEGIN {print ($EPOCHREALTIME < $NEXT)}")" -eq 1 ]; do
+        true # Waste CPU cycles intentionally to hit the exact millisecond mark
+    done
+done

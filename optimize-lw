@@ -1,0 +1,26 @@
+#!/bin/bash
+FRAME_DIR=$(realpath "$1")
+SLEEP_TIME="${2:-0.033}"
+
+echo "Loading frames into memory..."
+mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
+
+echo "Starting high-speed loop..."
+LAST_PID=""
+
+while true; do
+    for frame in "${FRAMES[@]}"; do
+        # 1. Launch feh in the background so it doesn't block the sleep timer
+        feh --bg-scale "$frame" &
+        NEW_PID=$!
+        
+        # 2. Immediately kill the previous frame's process to keep memory clean
+        if [ -n "$LAST_PID" ]; then
+            kill "$LAST_PID" 2>/dev/null
+        fi
+        LAST_PID=$NEW_PID
+        
+        # 3. Precise sleep
+        sleep "$SLEEP_TIME"
+    done
+done

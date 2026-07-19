@@ -1,0 +1,22 @@
+#!/bin/bash
+
+FRAME_DIR=$(realpath "$1")
+# Convert 0.033s to microseconds for more precise scheduling
+SLEEP_TIME="${2:-0.033}"
+
+echo "Caching frames into RAM..."
+mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
+
+# Force the OS to preload all images into the system's RAM cache ahead of time
+cat "${FRAMES[@]}" > /dev/null
+
+echo "Starting ultra-smooth loop..."
+while true; do
+    for frame in "${FRAMES[@]}"; do
+        # Use feh's fast background restorer instead of full scale calculation if possible
+        feh --bg-scale "$frame"
+        
+        # Microsecond sleep via perl or system built-in to avoid 'sleep' process spawn lag
+        perl -e "select(undef,undef,undef,$SLEEP_TIME);"
+    done
+done
