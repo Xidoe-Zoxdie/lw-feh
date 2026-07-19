@@ -1,0 +1,34 @@
+#!/bin/bash
+
+FRAME_DIR=$(realpath "$1")
+SLEEP_TIME="${2:-0.033}"
+
+echo "Caching 1,088 frames into RAM..."
+mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
+cat "${FRAMES[@]}" > /dev/null
+
+echo "Starting fixed hardware-timed loop..."
+TOTAL_FRAMES=${#FRAMES[@]}
+I=0
+
+# Use python3 to get a highly accurate starting timestamp
+START_TIME=$(python3 -c 'import time; print(time.time())')
+
+while true; do
+    # 1. Update the background
+    xwallpaper --zoom "${FRAMES[$I]}"
+    
+    # 2. Advance frame index
+    I=$(( (I + 1) % TOTAL_FRAMES ))
+    
+    # 3. Calculate target time for the next frame
+    TARGET_TIME=$(python3 -c "print($START_TIME + ($I * $SLEEP_TIME))")
+    
+    # 4. Sleep precisely until the target time hits
+    python3 -c "import time; delay = $TARGET_TIME - time.time(); time.sleep(max(0, delay))"
+    
+    # Reset base time every full loop to avoid long-term clock drift
+    if [ $I -eq 0 ]; then
+        START_TIME=$(python3 -c 'import time; print(time.time())')
+    fi
+done

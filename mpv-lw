@@ -1,40 +1,26 @@
 #!/bin/bash
-
 FRAME_DIR=$(realpath "$1")
-DELAY="${2:-0.033}"
+SLEEP_TIME="${2:-0.033}"
 
-echo "Pre-loading 1,088 frames into RAM..."
+echo "Loading frames into memory..."
 mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
-cat "${FRAMES[@]}" > /dev/null
 
-echo "Starting high-speed frame-locked engine..."
-TOTAL_FRAMES=${#FRAMES[@]}
-I=0
-
-# Convert delay (seconds) into microseconds (e.g., 0.033 -> 33000)
-DELAY_US=$(awk "BEGIN {print int($DELAY * 1000000)}")
-
-# Get current time in microseconds by stripping the decimal point
-get_time_us() {
-    local t=$EPOCHREALTIME
-    echo "${t/./}"
-}
-
-NEXT=$(get_time_us)
+echo "Starting high-speed loop..."
+LAST_PID=""
 
 while true; do
-    # 1. Update the background instantly
-    feh --bg-scale "${FRAMES[$I]}"
-    
-    # 2. Advance index
-    I=$(( (I + 1) % TOTAL_FRAMES ))
-    
-    # 3. Schedule target microsecond timestamp
-    NEXT=$(( NEXT + DELAY_US ))
-    
-    # 4. Pure integer math wait loop (Lightning fast, no awk overhead)
-    while true; do
-        CURRENT=$(get_time_us)
-        [ "$CURRENT" -ge "$NEXT" ] && break
+    for frame in "${FRAMES[@]}"; do
+        # 1. Launch feh in the background so it doesn't block the sleep timer
+        feh --bg-scale "$frame" &
+        NEW_PID=$!
+        
+        # 2. Immediately kill the previous frame's process to keep memory clean
+        if [ -n "$LAST_PID" ]; then
+            kill "$LAST_PID" 2>/dev/null
+        fi
+        LAST_PID=$NEW_PID
+        
+        # 3. Precise sleep
+        sleep "$SLEEP_TIME"
     done
 done

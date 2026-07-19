@@ -1,0 +1,39 @@
+#!/bin/bash
+
+FRAME_DIR=$(realpath "$1")
+DELAY="${2:-0.033}"
+
+echo "Pre-loading 1,088 frames into RAM..."
+mapfile -t FRAMES < <(find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V)
+cat "${FRAMES[@]}" > /dev/null
+
+echo "Starting high-speed frame-locked engine via xwallpaper..."
+TOTAL_FRAMES=${#FRAMES[@]}
+I=0
+
+# Convert delay to microseconds
+DELAY_US=$(awk "BEGIN {print int($DELAY * 1000000)}")
+
+get_time_us() {
+    local t=$EPOCHREALTIME
+    echo "${t/./}"
+}
+
+NEXT=$(get_time_us)
+
+while true; do
+    # 1. Use xwallpaper instead of feh -- it updates X11 instantly
+    xwallpaper --zoom "${FRAMES[$I]}"
+    
+    # 2. Advance index
+    I=$(( (I + 1) % TOTAL_FRAMES ))
+    
+    # 3. Schedule target microsecond timestamp
+    NEXT=$(( NEXT + DELAY_US ))
+    
+    # 4. Pure integer math wait loop (No process spawning)
+    while true; do
+        CURRENT=$(get_time_us)
+        [ "$CURRENT" -ge "$NEXT" ] && break
+    done
+done
