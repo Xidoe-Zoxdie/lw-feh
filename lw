@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Ensure a directory argument was provided
+if [ -z "$1" ]; then
+    echo "Error: Please provide the path to the frames folder."
+    echo "Usage: $0 /path/to/folder [sleep_time]"
+    exit 1
+fi
+
+# Convert the provided path to an absolute path
+FRAME_DIR=$(realpath "$1")
+
+# Ensure the directory actually exists
+if [ ! -d "$FRAME_DIR" ]; then
+    echo "Error: Directory '$FRAME_DIR' does not exist."
+    exit 1
+fi
+
+# Set custom sleep time if provided; otherwise default to 0.033
+SLEEP_TIME="${2:-0.033}"
+
+echo "Starting live wallpaper from: $FRAME_DIR"
+echo "Frame delay set to: ${SLEEP_TIME}s"
+echo "Press [CTRL+C] in this terminal to stop it."
+
+while true; do
+    # Use 'find' and 'sort -V' to get the frames in perfect numerical order
+    find "$FRAME_DIR" -maxdepth 1 -name "frame-*.png" | sort -V | while read -r frame; do
+        feh --bg-scale "$frame"
+        sleep "$SLEEP_TIME"
+    done
+done
